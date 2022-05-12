@@ -1,0 +1,318 @@
+#define GYRO_PORT S3 
+
+#define ULTRASONIC_PORT S4 
+
+#define TOUCH_PORT S1 
+
+  
+
+const float MAX_TOL = 25; 
+
+const float MIN_TOL = 3; 
+
+const int TURN_SPEED = 10; 
+
+const int MOP_SPEED = 15; 
+
+const int MOTOR_DRIVE_SPEED = 30; // here for testing purposes 
+
+const int MOTOR_BACK = 10*360 / (2*PI*2.75); //10 cm 
+
+const int SIDES = 4; 
+
+  
+
+void configure() 
+
+{ 
+
+SensorType[GYRO_PORT] = sensorEV3_Gyro; 
+
+wait1Msec(50); 
+
+SensorMode[GYRO_PORT] = modeEV3Gyro_Calibration; 
+
+wait1Msec(50); 
+
+SensorMode[GYRO_PORT] = modeEV3Gyro_RateAndAngle; 
+
+wait1Msec(50); 
+
+SensorType[TOUCH_PORT] = sensorEV3_Touch; 
+
+SensorType[ULTRASONIC_PORT] = sensorEV3_Ultrasonic; 
+
+ 
+
+} 
+
+ 
+
+void moveBot (float dist, bool direction) 
+
+{ 
+
+float distance = dist * 360/ (2*PI*2.75); //constant? 
+
+nMotorEncoder[motorA] = 0; 
+
+if (direction == 1) 
+
+{ 
+
+motor[motorA] = motor[motorD] = MOTOR_DRIVE_SPEED; 
+
+while (fabs(nMotorEncoder[motorA]) < distance) 
+
+{} 
+
+motor[motorA] = motor[motorD] = 0; 
+
+} 
+
+if (direction == 0) 
+
+{ 
+
+motor[motorA] = motor[motorD] = - MOTOR_DRIVE_SPEED; 
+
+while (fabs(nMotorEncoder[motorA]) < distance) 
+
+{} 
+
+motor[motorA] = motor[motorD] = 0; 
+
+} 
+
+} 
+
+  
+
+Page Break
+ 
+
+//turn the robot 90 degrees 
+
+void turn(bool countClock) 
+
+{ 
+
+resetGyro(GYRO_PORT); 
+
+  
+
+if (countClock) 
+
+{ 
+
+motor[motorA] = TURN_SPEED; 
+
+motor[motorD] = -TURN_SPEED; 
+
+} 
+
+else 
+
+{ 
+
+motor[motorA] = -TURN_SPEED; 
+
+motor[motorD] = TURN_SPEED; 
+
+} 
+
+while (fabs(getGyroDegrees(GYRO_PORT)) < 90) 
+
+{} 
+
+motor[motorA] = motor[motorD] = 0; 
+
+} 
+
+  
+
+//checks if touch sensor is activated 
+
+bool isTouched () 
+
+{ 
+
+if (SensorValue[S1] == 0) 
+
+return 0; 
+
+  
+
+else 
+
+{ 
+
+motor[motorA] = motor[motorD] = motor[motorB] = 0; 
+
+nMotorEncoder[motorA] = 0; 
+
+wait1Msec(5000); 
+
+if (SensorValue[S1] == 1) 
+
+{ 
+
+motor[motorA] = motor[motorD] = - MOTOR_DRIVE_SPEED; 
+
+while (fabs(nMotorEncoder[motorA]) < MOTOR_BACK) 
+
+{} 
+
+motor[motorA] = motor[motorD] = 0; 
+
+turn(1); 
+
+return 1; 
+
+} 
+
+else 
+
+{ 
+
+return 0; 
+
+} 
+
+} 
+
+} 
+
+  
+
+Page Break
+ 
+
+//align the robot against the wall 
+
+void alignRobot(float distance) 
+
+{ 
+
+float distToMove = 0; 
+
+bool direction = 1; 
+
+if (distance > MAX_TOL) 
+
+{ 
+
+distToMove = distance - MAX_TOL; 
+
+turn(0); 
+
+moveBot(distToMove, 1); 
+
+turn(1); 
+
+} 
+
+else 
+
+{ 
+
+distToMove = MIN_TOL - distance; 
+
+turn(1); 
+
+moveBot(distToMove, 1); 
+
+turn(0); 
+
+} 
+
+} 
+
+  
+
+  
+
+/*determines distance from the wall. Calculated using the ultrasonic sensor  
+
+and returns distance as a double*/ 
+
+int distWall() 
+
+{ 
+
+float distance = 0; 
+
+distance = SensorValue[ULTRASONIC_PORT]; 
+
+return (int)distance; 
+
+} 
+
+  
+
+//moves the motor connected to the mop back and forth for 5 seconds 
+
+void mopClean() 
+
+{ 
+
+motor[motorB] = MOP_SPEED; 
+
+wait1Msec(2000); 
+
+motor[motorB] = -MOP_SPEED; 
+
+wait1Msec(2000); 
+
+  
+
+motor[motorA] = motor[motorB] = 0; 
+
+} 
+
+  
+
+Page Break
+ 
+
+task main() 
+
+{ 
+
+configure(); 
+
+  
+
+//start program 
+
+while (!getButtonPress(buttonEnter)) 
+
+{} 
+
+while (getButtonPress(buttonEnter)) 
+
+{} 
+
+  
+
+for(int i = 1; i <= SIDES; i++) 
+
+{ 
+
+alignRobot(distWall()); 
+
+while (!isTouched()) 
+
+{ 
+
+moveBot(20,1); 
+
+mopClean(); 
+
+} 
+
+} 
+
+displayString(3, "ROOM CLEANED"); 
+
+wait1Msec(3000); 
